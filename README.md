@@ -1,6 +1,6 @@
-REAL-colon dataset
+#REAL-colon dataset
 
-# Description
+## Description
 The REAL (Real-world multi-center Endoscopy Annotated video Library) - colon dataset
 is composed of 60 recordings of real-world colonoscopies. The recordings comes from 4 different
 clinical studies (001 to 004), each contributing with 15 videos.
@@ -14,11 +14,11 @@ Key stats:
 - 351264 bounding box annotations
 
 
-# Download
+## Download
 The dataset has been uploaded to Figshare and archived at this DOI:  [10.25452/figshare.plus.22202866
 ](https://doi.org/10.25452/figshare.plus.22202866)
 
-# Data Format
+## Data Format
 The dataset is composed by the following files:
 - 60 compressed folders named `{SSS}-{VVV}_frames` with the frames from each recording
 - 60 compressed folders named `{SSS}-{VVV}_annotation` with the annotations from each recordings
@@ -27,7 +27,7 @@ The dataset is composed by the following files:
 - dataset_description.md, a readme file with information about the dataset
 
 
-## Annotation file
+### Annotation file
 Each xml file has this format:
 Sample VOC notation:
     <annotation>
@@ -56,7 +56,7 @@ Sample VOC notation:
         </object>
     </annotation>
 
-## CSV files
+### CSV files
 The two csv files contain the metadata for each video (video_info.csv) and for
 each lesion (lesion_info.csv).
 
@@ -78,12 +78,12 @@ The `lesion_info.csv` file reports the following data:
 - histology_extended: lesion histology
 - histology_class: lesion histology assigned to one of the following classes: (adenoma, AD; hyperplastic polyp, HP; sessile serrated lesion, SSL, NO POLYP, traditional serrated adenoma, TSA; OTHER)
 
-# Version
+## Version
 v1.0, 2023/02/28
 
-# Contact
+## Contact
 Andrea Cherubini - acherubini@cosmoimd.com
 
-# License
+## License
 CC BY-NC-SA 4.0, https://creativecommons.org/licenses/by-nc-sa/4.0/
 
