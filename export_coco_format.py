@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 """ Use this script to convert the annotation of the REAL-Colon dataset from the VOC format to the COCO format.
-    For each dataset group (1-4) the first 12 videos will go to the training set, the remaining 3 to the validation set
-    Also the code will sample a subset of the negative images to be used for training
+    The script allows to include in the converted dataset a subset of the whole dataset, selecting the number of positive and negative images.
+    The script will also produce 3 splits (training, validation, testing), with same proportion across each dataset group (1-4) 
 
     Copyright 2023-, Cosmo Intelligent Medical Devices
 """
@@ -98,19 +98,25 @@ def parsevocfile(annotation_file):
     return {"boxes": cboxes, "img_shape": img_shape, "img_name": filename }
 
 
-def convert_video_list(cosmo_base_dataset_folder, video_list, annotation_list, frames_output_folder, json_output_file):
+def convert_video_list(base_dataset_folder, video_list, annotation_list, frames_output_folder, json_output_file, negative_ratio=0, num_positives_per_lesions=-1):
     """
     Takes in input a list of video folders (each of them contains the video frames) and the relative annotation folders and
     convert them into COCO format. All frames with boxes are added to the dataset, while the negative frames are randomly selected
     from the whole dataset. We select N negative frames where N = max(1% of #negative_frames, 10% of #frames_with_boxes)
 
     Args:
-        cosmo_base_dataset_folder (string) : Base folder for the uncompressed REAL-colon dataset in the original format
+        base_dataset_folder (string) : Base folder for the uncompressed REAL-colon dataset in the original format
         video_list (list) : List of video folders to which conversion should be applied
         annotation_list (list) : List of annotation folders to which conversion should be applied
         frames_output_folder (string): Output folders for the frames (relative symlink will be created)
         json_output_file (string): Name of the json output file with the annotation for each frame in the dataset
+        negative_ratio (float): Ratio of frames without boxes to keep for each video (must be in [0,1])
+        num_positives_per_lesions (int): how many frames to keep for each lesion (-1 = keep all of them)
     """
+
+    # Check input parameters are valid
+    if negative_ratio < 0 or negative_ratio > 1:
+        raise Exception(f"Invalid 'negative_ratio' arg {negative_ratio}, must be in [0,1]")
 
     # Hardcoded dictionary fields
     data = {}
@@ -130,8 +136,8 @@ def convert_video_list(cosmo_base_dataset_folder, video_list, annotation_list, f
     uniq_box_to_lesion_association = {}
     for video_idx, (curr_video_folder, curr_ann_folder) in enumerate(zip(video_list, annotation_list)):
         print(f"Processing video {video_idx}")
-        all_images = sorted(os.listdir(os.path.join(cosmo_base_dataset_folder, curr_video_folder)), key=lambda x : int(x.split("_")[-1].split(".")[0]))
-        all_xmls = sorted(os.listdir(os.path.join(cosmo_base_dataset_folder, curr_ann_folder)), key=lambda x : int(x.split("_")[-1].split(".")[0]))
+        all_images = sorted(os.listdir(os.path.join(base_dataset_folder, curr_video_folder)), key=lambda x : int(x.split("_")[-1].split(".")[0]))
+        all_xmls = sorted(os.listdir(os.path.join(base_dataset_folder, curr_ann_folder)), key=lambda x : int(x.split("_")[-1].split(".")[0]))
         if not len(all_images) == len(all_xmls):
             raise Exception("Image and annotations must have same length")
 
@@ -139,26 +145,52 @@ def convert_video_list(cosmo_base_dataset_folder, video_list, annotation_list, f
         all_datas = []
         num_boxes_indexes = []
         for c_xml in all_xmls:
-            c_data = parsevocfile(os.path.join(cosmo_base_dataset_folder, curr_ann_folder, c_xml))
+            c_data = parsevocfile(os.path.join(base_dataset_folder, curr_ann_folder, c_xml))
             all_datas.append(c_data)
             num_boxes_indexes.append(len(c_data['boxes']))
         num_frames = len(all_datas)
+
+        # prepare a dictionary with the list of frames for each lesion
         frames_wbox_indexes = [idx for idx, v in enumerate(num_boxes_indexes) if v > 0]
         frames_nobox_indexes = [idx for idx, v in enumerate(num_boxes_indexes) if v == 0]
+        per_lesion_dict = {}
+        for cidx, c_data in enumerate(all_datas):
+            for cbox in c_data['boxes']:
+                cname = cbox['unique_id']
+                if not cname in per_lesion_dict.keys():
+                    per_lesion_dict[cname] = []
+                per_lesion_dict[cname].append(cidx)
+        print(f"Found {len(per_lesion_dict)} lesions with {' - '.join([str(len(per_lesion_dict[x])) for x in per_lesion_dict.keys()])} frames each")
 
-        # Select how many negative frames to keep and randomly sample them
+        # Select the positive samples
         random.seed(1000)
-        to_keep = int(max(0.01 * len(frames_nobox_indexes), min(0.1 * len(frames_wbox_indexes), len(frames_nobox_indexes))))
-        selected_frames = frames_wbox_indexes + random.sample(frames_nobox_indexes, to_keep)
-        print(f"Sampling {len(selected_frames)} frames from {num_frames} frames {len(frames_nobox_indexes), len(frames_wbox_indexes)} (wbox/nobox)")
+        selected_frames_w_box_indexes = set([])
+        for l in per_lesion_dict.keys():
+            c_list = per_lesion_dict[l]
+            if num_positives_per_lesions > 0:
+                random.shuffle(c_list)
+                to_select = min(len(c_list), num_positives_per_lesions)
+                selected_frames_w_box_indexes = selected_frames_w_box_indexes.union(set(c_list[:to_select]))
+            else:
+                selected_frames_w_box_indexes = selected_frames_w_box_indexes.union(set(c_list))
+        selected_frames_w_box_indexes = sorted(list(selected_frames_w_box_indexes))
+        print(
+            f"Sampled {num_positives_per_lesions} positive frames per lesion, using {len(selected_frames_w_box_indexes)}/{len(frames_wbox_indexes)} positive frames")
+
+        # Select the negative samples
+        to_keep = int(negative_ratio * len(frames_nobox_indexes))
+        selected_frames = selected_frames_w_box_indexes + random.sample(frames_nobox_indexes, to_keep)
+        print(f"Sampled {to_keep} negative frames from frames {len(frames_nobox_indexes)} total negatives (negative_ratio = {negative_ratio})")
         xml_to_be_used = [all_xmls[y] for y in selected_frames]
 
         # Process each selected frame for current video
         for c_xml in xml_to_be_used:
-            c_data = parsevocfile(os.path.join(cosmo_base_dataset_folder, curr_ann_folder, c_xml))
+            c_data = parsevocfile(os.path.join(base_dataset_folder, curr_ann_folder, c_xml))
+            
             # Add the image to the list of images
             data["images"].append({'license': 1, 'file_name': c_data['img_name'], 'height': c_data['img_shape'][0], 'width': c_data['img_shape'][1], 'id': image_uniq_id_cnt})
             images_uniq_id[image_uniq_id_cnt] = c_data['img_name']
+            
             # Loop on boxes
             for cbox in c_data['boxes']:
                 l = min(cbox['box_ltrb'][0], c_data['img_shape'][1]-1)
@@ -174,9 +206,9 @@ def convert_video_list(cosmo_base_dataset_folder, video_list, annotation_list, f
                 uniq_box_to_lesion_association[cbox['unique_id']].append(image_uniq_box_cnt)
                 image_uniq_box_cnt += 1
 
-            # Create symbolic link
+            # Create symbolic link from the original dataset location
             os.symlink(
-                os.path.relpath(os.path.join(cosmo_base_dataset_folder, curr_video_folder,c_data['img_name']),frames_output_folder),
+                os.path.relpath(os.path.join(base_dataset_folder, curr_video_folder,c_data['img_name']),frames_output_folder),
                 os.path.join(frames_output_folder, c_data['img_name']))
             # Image process completed, increment id
             image_uniq_id_cnt += 1
@@ -186,30 +218,41 @@ def convert_video_list(cosmo_base_dataset_folder, video_list, annotation_list, f
 
 if __name__ == "__main__":
 
+
+    # Parameters
+    base_dataset_folder = "/path/to/dataset/folder"  # Path to the folder of the original REAL-COLON dataset (update with proper value)
+    num_positives_per_lesions = 1000 # Number of frames with boxes for each polyp to be included in the output dataset
+    negative_ratio = 0 # Ratio of images without boxes for each video to be included in the output dataset [0,1]
+    NUM_TRAIN_VIDEOS_PER_SET = 10 # the first 10 videos for each set will go in the train set
+    NUM_VALID_VIDEOS_PER_SET = 2 # the next 2 in the validation set, and the remaining videos (3)for each set will go in the test set
+    output_folder = f"./real_colon_dataset_coco_fmt_3subsets_poslesion{num_positives_per_lesions}_negratio{negative_ratio}" # Output folder for the converted dataset
+
     # read input data
-    cosmo_base_dataset_folder = "real_colon_dataset"
-    video_list = sorted([x for x in os.listdir(cosmo_base_dataset_folder) if x.endswith("_frames")])
-    annotation_list = sorted([x for x in os.listdir(cosmo_base_dataset_folder) if x.endswith("_annotations")])
+    video_list = sorted([x for x in os.listdir(base_dataset_folder) if x.endswith("_frames")])
+    annotation_list = sorted([x for x in os.listdir(base_dataset_folder) if x.endswith("_annotations")])
 
     # set output folder for coco format annotations
-    output_folder = "real_colon_dataset_coco_fmt"
-    os.makedirs(output_folder, exist_ok=True)
+    os.makedirs(output_folder, exist_ok=False)
     train_images_folder = os.path.join(output_folder, "train_images")
     validation_images_folder = os.path.join(output_folder, "validation_images")
+    test_images_folder = os.path.join(output_folder, "test_images")
     json_output_file_train = os.path.join(output_folder, "train_ann.json")
     json_output_file_validation = os.path.join(output_folder, "validation_ann.json")
+    json_output_file_test = os.path.join(output_folder, "test_ann.json")
 
     # Perform the conversion:
-    # in this example the first 12 videos for each set will go in the train set,
-    # the last 3 videos for each set will go in the validation set
-    NUM_TRAIN_VIDEOS_PER_SET = 12
     video_list_train = [x for x in video_list if int(x.split("-")[1].split("_")[0]) <= NUM_TRAIN_VIDEOS_PER_SET]
     annotation_list_train = [x for x in annotation_list if int(x.split("-")[1].split("_")[0]) <= NUM_TRAIN_VIDEOS_PER_SET]
-    convert_video_list(cosmo_base_dataset_folder, video_list_train, annotation_list_train, train_images_folder,
-                       json_output_file_train)
+    convert_video_list(base_dataset_folder, video_list_train, annotation_list_train, train_images_folder,
+                       json_output_file_train,negative_ratio=negative_ratio, num_positives_per_lesions=num_positives_per_lesions)
     print("Training subset conversion completed")
-    video_list_validation = [x for x in video_list if int(x.split("-")[1].split("_")[0]) > NUM_TRAIN_VIDEOS_PER_SET]
-    annotation_list_validation = [x for x in annotation_list if int(x.split("-")[1].split("_")[0]) > NUM_TRAIN_VIDEOS_PER_SET]
-    convert_video_list(cosmo_base_dataset_folder, video_list_validation, annotation_list_validation, validation_images_folder,
-                       json_output_file_validation)
+    video_list_validation = [x for x in video_list if (int(x.split("-")[1].split("_")[0]) > NUM_TRAIN_VIDEOS_PER_SET and int(x.split("-")[1].split("_")[0]) <= (NUM_VALID_VIDEOS_PER_SET+NUM_TRAIN_VIDEOS_PER_SET))]
+    annotation_list_validation = [x for x in annotation_list if (int(x.split("-")[1].split("_")[0]) > NUM_TRAIN_VIDEOS_PER_SET and int(x.split("-")[1].split("_")[0]) <= (NUM_VALID_VIDEOS_PER_SET+NUM_TRAIN_VIDEOS_PER_SET))]
+    convert_video_list(base_dataset_folder, video_list_validation, annotation_list_validation, validation_images_folder,
+                       json_output_file_validation,negative_ratio=negative_ratio, num_positives_per_lesions=num_positives_per_lesions)
     print("Validation subset conversion completed")
+    video_list_test = [x for x in video_list if int(x.split("-")[1].split("_")[0]) > (NUM_VALID_VIDEOS_PER_SET+NUM_TRAIN_VIDEOS_PER_SET)]
+    annotation_list_test = [x for x in annotation_list if int(x.split("-")[1].split("_")[0]) > (NUM_VALID_VIDEOS_PER_SET+NUM_TRAIN_VIDEOS_PER_SET)]
+    convert_video_list(base_dataset_folder, video_list_test, annotation_list_test, test_images_folder,
+                       json_output_file_test,negative_ratio=negative_ratio, num_positives_per_lesions=num_positives_per_lesions)
+    print("Testing subset conversion completed")
