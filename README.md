@@ -7,16 +7,13 @@ clinical studies (001 to 004), each contributing with 15 videos.
 For each patient/video, several clinical variables have been collected, including endoscope_brand, bowel cleanliness score (BBPS), number of surgically removed colon lesions, etc.
 Each removed lesion has been annotated with a bounding box in each video frame where it appeared by trained labelers, supervised by expert gastroenterologists. Polyp information including histology, size and anatomical site has been recorded.
 
+For full details on the dataset and to cite this work, please refer to: Carlo Biffi, Giulio Antonelli, Sebastian Bernhofer, Cesare Hassan, Daizen Hirata, Mineo Iwatate, Andreas Maieron, Pietro Salvagnini, and Andrea Cherubini. "REAL-Colon: A dataset for developing real-world AI applications in colonoscopy." arXiv preprint arXiv:2403.02163 (2024). Available at: https://arxiv.org/abs/2403.02163.
+
 Key stats:
 - 60 recordings, 15 for each of the 4 centers
 - 2757723 total frames
 - 132 removed colorectal polyps
 - 351264 bounding box annotations
-
-
-## Download
-The dataset has been uploaded to Figshare and archived at this DOI:  [10.25452/figshare.plus.22202866
-](https://doi.org/10.25452/figshare.plus.22202866)
 
 ## Data Format
 The dataset is composed by the following files:
@@ -78,12 +75,27 @@ The `lesion_info.csv` file reports the following data:
 - histology_extended: lesion histology
 - histology_class: lesion histology assigned to one of the following classes: (adenoma, AD; hyperplastic polyp, HP; sessile serrated lesion, SSL, NO POLYP, traditional serrated adenoma, TSA; OTHER)
 
+## Dataset Download
+Run `figshare_dataset.py` to automatically download the dataset in full from Figshare to the `./dataset` folder. Output folder can be updated setting variable `DOWNLOAD_DIR` in `figshare_dataset.py`. Dataset files are roughly 1TB worth of information and, depending on your resources, can take up to multiple days to download, so please make proper preparations.
+
+The dataset has also been uploaded to Figshare [https://plus.figshare.com/articles/media/REAL-colon_dataset/22202866](https://plus.figshare.com/articles/media/REAL-colon_dataset/22202866)  and archived at this DOI:  [10.25452/figshare.plus.22202866
+](https://doi.org/10.25452/figshare.plus.22202866)
+
+## Dataset Exploration and Stats
+To visualize some random exemplar images of the datasets together with clinical information about the data a Jupyter Notebook file, `explore_data.ipynb`, has been prepared.
+
+To reproduce statistics and plots reported in the paper "REAL-Colon: A dataset for developing real-world AI applications in colonoscopy" (https://arxiv.org/abs/2403.02163) please refer to the two python codes: `dataset_stats.py` and `bounding_boxes_plots.py`.
+
+## Polyp Detection
+To format data in the COCO format to be used for AI models training and validation and reproduce the results obtained in the paper "REAL-Colon: A dataset for developing real-world AI applications in colonoscopy", please refer to: [Polyp Detection](polyp_detection/README.md)
+
 ## Version
 v1.0, 2023/02/28
+v2.0, 2023/03/01
 
 ## Contact
 Andrea Cherubini - acherubini@cosmoimd.com
 
 ## License
-CC BY-NC-SA 4.0, https://creativecommons.org/licenses/by-nc-sa/4.0/
+CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
 

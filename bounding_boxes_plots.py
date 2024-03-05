@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-""" Compute and save plots that demonstrate various characteristics of the bounding box annotations in
+""" Compute and save plots that demonstrate data distributions of the bounding box annotations in
     the REAL-Colon dataset.
 
     Usage:
@@ -19,7 +19,7 @@ import numpy as np
 import concurrent.futures
 
 # Import repo scripts
-import export_coco_format
+from polyp_detection import export_coco_format
 
 
 def get_annotation_data(annotation_folder):
@@ -115,6 +115,11 @@ def main():
     lesion_info_csv = pd.read_csv(os.path.join(base_dataset_path, "lesion_info.csv"))
     video_info_csv = pd.read_csv(os.path.join(base_dataset_path, "video_info.csv"))
 
+    # Create the stats folder if it doesn't exist
+    path_ext = "./stats"
+    if not os.path.exists(path_ext):
+        os.makedirs(path_ext)
+
     # Retrieve annotations folder
     annotation_folders = []
     for dataset in range(1, 5):
@@ -193,7 +198,7 @@ def main():
         lambda uid: bounding_box_areas_over_1[uid] if uid in bounding_box_areas_over_1 else [])
 
     # Create a PDF file to save the boxplots
-    pdf_file_path = 'boxplots.pdf'
+    pdf_file_path = f"{path_ext}/boxplots.pdf"
     pdf_pages = PdfPages(pdf_file_path)
 
     # Create a new figure with three subplots arranged vertically
@@ -224,7 +229,7 @@ def main():
     pdf_pages.close()
 
     # Create a PDF file to save the heatmaps
-    pdf_file_path = 'heatmaps.pdf'
+    pdf_file_path = f"{path_ext}/heatmaps.pdf"
     pdf_pages = PdfPages(pdf_file_path)
 
     fig, axs = plt.subplots(2, 1, figsize=(8, 12))
@@ -302,7 +307,7 @@ def main():
     axes[1].set_xlim(10 ** 2, 10 ** 5)
 
     # Save the figure as a PDF file
-    plt.savefig("hist_boxes_per_frame_per_polyp.pdf")
+    plt.savefig(f"{path_ext}/hist_boxes_per_frame_per_polyp.pdf")
 
     # Display the figure
     plt.show()
@@ -356,7 +361,7 @@ def main():
 
     # Configure the plot layout and save the figure as a PDF
     plt.tight_layout()
-    plt.savefig("tracklets_plots.pdf")
+    plt.savefig(f"{path_ext}/tracklets_plots.pdf")
     plt.show()
 
     print("Script execution completed.")
