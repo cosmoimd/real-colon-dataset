@@ -188,7 +188,7 @@ def convert_video_list(base_dataset_folder, video_list, annotation_list, frames_
             c_data = parsevocfile(os.path.join(base_dataset_folder, curr_ann_folder, c_xml))
             
             # Add the image to the list of images
-            data["images"].append({'license': 1, 'file_name': c_data['img_name'], 'height': c_data['img_shape'][0], 'width': c_data['img_shape'][1], 'id': image_uniq_id_cnt})
+            data["images"].append({'license': 1, 'file_name': c_data['img_name'], 'height': c_data['img_shape'][0], 'width': c_data['img_shape'][1], 'id': image_uniq_id_cnt, 'unique_id': image_uniq_id_cnt})
             images_uniq_id[image_uniq_id_cnt] = c_data['img_name']
             
             # Loop on boxes
@@ -200,7 +200,7 @@ def convert_video_list(base_dataset_folder, video_list, annotation_list, frames_
                 area = (b-t)*(r-l)
                 data['annotations'].append({'segmentation': [[l, t, r, t, r, b, l, b]],'area': area,
                                             'iscrowd': 0, 'image_id': image_uniq_id_cnt,
-                                            'bbox': [l, t, r-l, b-t], 'category_id': 1, 'id': image_uniq_box_cnt})
+                                            'bbox': [l, t, r-l, b-t], 'category_id': 1, 'id': image_uniq_box_cnt, 'unique_id': image_uniq_box_cnt})
                 if not cbox['unique_id'] in uniq_box_to_lesion_association.keys():
                     uniq_box_to_lesion_association[cbox['unique_id']] = []
                 uniq_box_to_lesion_association[cbox['unique_id']].append(image_uniq_box_cnt)
@@ -220,12 +220,12 @@ if __name__ == "__main__":
 
 
     # Parameters
-    base_dataset_folder = "/path/to/dataset/folder"  # Path to the folder of the original REAL-COLON dataset (update with proper value)
+    base_dataset_folder = "/mnt/realcolon/dataset"  # Path to the folder of the original REAL-COLON dataset (update with proper value)
     num_positives_per_lesions = 1000 # Number of frames with boxes for each polyp to be included in the output dataset
     negative_ratio = 0 # Ratio of images without boxes for each video to be included in the output dataset [0,1]
     NUM_TRAIN_VIDEOS_PER_SET = 10 # the first 10 videos for each set will go in the train set
     NUM_VALID_VIDEOS_PER_SET = 2 # the next 2 in the validation set, and the remaining videos (3)for each set will go in the test set
-    output_folder = f"./real_colon_dataset_coco_fmt_3subsets_poslesion{num_positives_per_lesions}_negratio{negative_ratio}" # Output folder for the converted dataset
+    output_folder = f"/mnt/realcolon/coco/real_colon_dataset_coco_fmt_3subsets_poslesion{num_positives_per_lesions}_negratio{negative_ratio}" # Output folder for the converted dataset
 
     # read input data
     video_list = sorted([x for x in os.listdir(base_dataset_folder) if x.endswith("_frames")])
